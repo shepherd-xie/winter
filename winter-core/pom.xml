@@ -5,27 +5,22 @@
     <parent>
         <artifactId>winter-dependencies</artifactId>
         <groupId>com.orkva</groupId>
-        <version>1.0.0</version>
-        <relativePath>../winter-dependencies/pom.xml</relativePath>
+        <version>0.0.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>winter-asm</artifactId>
+    <artifactId>winter-core</artifactId>
+
+    <name>Winter Core</name>
 
     <properties>
+        <java.version>11</java.version>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-util</artifactId>
-        </dependency>
+
     </dependencies>
 
 </project>

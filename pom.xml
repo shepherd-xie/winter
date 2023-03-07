@@ -5,7 +5,7 @@
 
     <groupId>com.orkva</groupId>
     <artifactId>winter</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.1-SNAPSHOT</version>
 
     <name>Winter</name>
     <description>Another Spring</description>
@@ -13,7 +13,7 @@
 
     <modules>
         <module>winter-dependencies</module>
-        <module>winter-asm</module>
+        <module>winter-core</module>
     </modules>
 
 </project>
