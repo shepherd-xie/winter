@@ -2,7 +2,8 @@ package com.orkva.winter.core.service;
 
 import com.orkva.winter.core.annotation.Autowired;
 import com.orkva.winter.core.annotation.Component;
-import com.orkva.winter.core.aware.BeanNameAware;
+import com.orkva.winter.core.factory.BeanNameAware;
+import com.orkva.winter.core.factory.InitializingBean;
 import com.orkva.winter.core.repository.UserRepository;
 
 /**
@@ -12,7 +13,7 @@ import com.orkva.winter.core.repository.UserRepository;
  * @version 2023/4/17
  */
 @Component("userService")
-public class UserService implements BeanNameAware {
+public class UserService implements BeanNameAware, InitializingBean {
 
     @Autowired
     private UserRepository userRepository;
@@ -29,4 +30,8 @@ public class UserService implements BeanNameAware {
         this.beanName = beanName;
     }
 
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        System.out.println("afterPropertiesSet");
+    }
 }

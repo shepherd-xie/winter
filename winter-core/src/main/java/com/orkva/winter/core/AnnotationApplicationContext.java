@@ -4,8 +4,9 @@ import com.orkva.winter.core.annotation.Autowired;
 import com.orkva.winter.core.annotation.Component;
 import com.orkva.winter.core.annotation.ComponentScan;
 import com.orkva.winter.core.annotation.Scope;
-import com.orkva.winter.core.aware.BeanNameAware;
 import com.orkva.winter.core.exception.NoBeanDefinitionException;
+import com.orkva.winter.core.factory.BeanNameAware;
+import com.orkva.winter.core.factory.InitializingBean;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -53,8 +54,9 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
 
     private Object createBean(String beanName, BeanDefinition beanDefinition) {
         Class<?> clazz = beanDefinition.getClazz();
+        Object instance;
         try {
-            Object instance = clazz.getDeclaredConstructor().newInstance();
+            instance = clazz.getDeclaredConstructor().newInstance();
 
             for (Field declaredField : clazz.getDeclaredFields()) {
                 if (declaredField.isAnnotationPresent(Autowired.class)) {
@@ -64,11 +66,6 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
                 }
             }
 
-            if (instance instanceof BeanNameAware) {
-                ((BeanNameAware) instance).setBeanName(beanName);
-            }
-
-            return instance;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
         } catch (IllegalAccessException e) {
@@ -78,6 +75,20 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+
+        if (instance instanceof BeanNameAware) {
+            ((BeanNameAware) instance).setBeanName(beanName);
+        }
+
+        if (instance instanceof InitializingBean) {
+            try {
+                ((InitializingBean) instance).afterPropertiesSet();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return instance;
     }
 
     private void componentClassScan(ComponentScan componentScan) {
