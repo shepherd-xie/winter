@@ -1,6 +1,6 @@
 package com.orkva.winter.core;
 
-import com.orkva.winter.core.exception.NoBeanException;
+import com.orkva.winter.core.exception.NoBeanDefinitionException;
 
 /**
  * BeanFactory
@@ -10,7 +10,7 @@ import com.orkva.winter.core.exception.NoBeanException;
  */
 public interface BeanFactory {
 
-    Object getBean(String beanName) throws NoBeanException;
+    Object getBean(String beanName) throws NoBeanDefinitionException;
 
     boolean containsBean(String beanName);
 

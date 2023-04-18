@@ -6,5 +6,5 @@ package com.orkva.winter.core.exception;
  * @author Shepherd Xie
  * @version 2023/3/7
  */
-public class NoBeanException extends RuntimeException {
+public class NoBeanDefinitionException extends RuntimeException {
 }

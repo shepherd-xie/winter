@@ -1,13 +1,17 @@
 package com.orkva.winter.core;
 
+import com.orkva.winter.core.annotation.Component;
 import com.orkva.winter.core.annotation.ComponentScan;
+import com.orkva.winter.core.annotation.Scope;
+import com.orkva.winter.core.exception.NoBeanDefinitionException;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -18,7 +22,10 @@ import java.util.stream.Collectors;
  */
 public class AnnotationApplicationContext extends AbstractApplicationContext {
 
-    private Class configClass;
+    private Class<?> configClass;
+
+    private ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
 
     private final static ClassLoader CLASS_LOADER;
 
@@ -26,47 +33,100 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
         CLASS_LOADER = AnnotationApplicationContext.class.getClassLoader();
     }
 
-    public AnnotationApplicationContext(Class configClass) {
+    public AnnotationApplicationContext(Class<?> configClass) {
         this.configClass = configClass;
 
-        ComponentScan componentScan = (ComponentScan) configClass.getDeclaredAnnotation(ComponentScan.class);
-        List<Class<?>> classList = componentClassScan(componentScan);
+        ComponentScan componentScan = configClass.getDeclaredAnnotation(ComponentScan.class);
+        componentClassScan(componentScan);
 
+        for (Map.Entry<String, BeanDefinition> beanDefinitionEntry : beanDefinitionMap.entrySet()) {
+            BeanDefinition beanDefinition = beanDefinitionEntry.getValue();
+            if ("singleton".equals(beanDefinition.getScope())) {
+                singletonObjects.put(beanDefinitionEntry.getKey(), createBean(beanDefinition));
+            }
+        }
     }
 
-    private List<Class<?>> componentClassScan(ComponentScan componentScan) {
+    public Object createBean(BeanDefinition beanDefinition) {
+        Class<?> clazz = beanDefinition.getClazz();
+        try {
+            return clazz.getDeclaredConstructor().newInstance();
+        } catch (InstantiationException e) {
+            throw new RuntimeException(e);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void componentClassScan(ComponentScan componentScan) {
         String basePackage = componentScan.value();
         String[] backPackagePaths = basePackage.split("\\.");
         URL resource = CLASS_LOADER.getResource(String.join("/", backPackagePaths));
 
         File basePackageDirectory = new File(resource.getFile());
-        List<Class<?>> scanClassList = new ArrayList<>();
-        if (basePackageDirectory.isDirectory()) {
-            ArrayDeque<File> fileDeque = new ArrayDeque<>();
-            fileDeque.add(basePackageDirectory);
+        if (!basePackageDirectory.isDirectory()) {
+            return;
+        }
 
-            while (!fileDeque.isEmpty()) {
-                File file = fileDeque.poll();
-                if (file.isDirectory()) {
-                    File[] subFiles = file.listFiles();
-                    if (subFiles != null) {
-                        fileDeque.addAll(Arrays.stream(subFiles).collect(Collectors.toList()));
-                    }
-                } else {
-                    String absolutePath = file.getAbsolutePath();
-                    if (absolutePath.endsWith(".class")) {
-                        String fullyClassPath = absolutePath.substring(absolutePath.indexOf(String.join(File.separator, backPackagePaths)), absolutePath.indexOf(".class"));
-                        String fullyClassName = fullyClassPath.replace(File.separator, ".");
+        ArrayDeque<File> fileDeque = new ArrayDeque<>();
+        fileDeque.add(basePackageDirectory);
 
-                        try {
-                            scanClassList.add(CLASS_LOADER.loadClass(fullyClassName));
-                        } catch (ClassNotFoundException e) {
-                            throw new RuntimeException(e);
+        while (!fileDeque.isEmpty()) {
+            File file = fileDeque.poll();
+            if (file.isDirectory()) {
+                File[] subFiles = file.listFiles();
+                if (subFiles != null) {
+                    fileDeque.addAll(Arrays.stream(subFiles).collect(Collectors.toList()));
+                }
+            } else {
+                String absolutePath = file.getAbsolutePath();
+                if (absolutePath.endsWith(".class")) {
+                    String fullyClassPath = absolutePath.substring(absolutePath.indexOf(String.join(File.separator, backPackagePaths)), absolutePath.indexOf(".class"));
+                    String fullyClassName = fullyClassPath.replace(File.separator, ".");
+
+                    try {
+                        Class<?> clazz = CLASS_LOADER.loadClass(fullyClassName);
+                        if (!clazz.isAnnotationPresent(Component.class)) {
+                            continue;
                         }
+                        Component component = clazz.getDeclaredAnnotation(Component.class);
+                        String beanName = component.value();
+
+                        BeanDefinition beanDefinition = new BeanDefinition();
+                        beanDefinition.setClazz(clazz);
+
+                        if (clazz.isAnnotationPresent(Scope.class)) {
+                            Scope scope = clazz.getDeclaredAnnotation(Scope.class);
+                            beanDefinition.setScope(scope.value());
+                        } else {
+                            beanDefinition.setScope("singleton");
+                        }
+
+                        beanDefinitionMap.put(beanName, beanDefinition);
+
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }
         }
-        return scanClassList;
+    }
+
+    @Override
+    public Object getBean(String beanName) {
+        if (!beanDefinitionMap.containsKey(beanName)) {
+            throw new NoBeanDefinitionException();
+        }
+
+        BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
+        if ("singleton".equals(beanDefinition.getScope())) {
+            return singletonObjects.get(beanName);
+        }
+
+        return createBean(beanDefinition);
     }
 }

@@ -1,6 +1,6 @@
 package com.orkva.winter.core;
 
-import com.orkva.winter.core.exception.NoBeanException;
+import com.orkva.winter.core.exception.NoBeanDefinitionException;
 
 import java.util.HashMap;
 
@@ -17,7 +17,7 @@ public abstract class AbstractApplicationContext implements BeanFactory {
     @Override
     public Object getBean(String beanName) {
         if (!containsBean(beanName)) {
-            throw new NoBeanException();
+            throw new NoBeanDefinitionException();
         }
 
         return beanInstances.get(beanName);
