@@ -6,15 +6,14 @@ import com.orkva.winter.core.annotation.ComponentScan;
 import com.orkva.winter.core.annotation.Scope;
 import com.orkva.winter.core.exception.NoBeanDefinitionException;
 import com.orkva.winter.core.factory.BeanNameAware;
+import com.orkva.winter.core.factory.BeanPostProcessor;
 import com.orkva.winter.core.factory.InitializingBean;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -30,6 +29,7 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
 
     private ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
+    private List<BeanPostProcessor> beanPostProcessors = new ArrayList<>();
 
     private final static ClassLoader CLASS_LOADER;
 
@@ -80,12 +80,20 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
             ((BeanNameAware) instance).setBeanName(beanName);
         }
 
+        for (BeanPostProcessor beanPostProcessor : beanPostProcessors) {
+            instance = beanPostProcessor.postProcessBeforeInitialization(instance, beanName);
+        }
+
         if (instance instanceof InitializingBean) {
             try {
                 ((InitializingBean) instance).afterPropertiesSet();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        for (BeanPostProcessor beanPostProcessor : beanPostProcessors) {
+            instance = beanPostProcessor.postProcessAfterInitialization(instance, beanName);
         }
 
         return instance;
@@ -117,29 +125,47 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
                     String fullyClassPath = absolutePath.substring(absolutePath.indexOf(String.join(File.separator, backPackagePaths)), absolutePath.indexOf(".class"));
                     String fullyClassName = fullyClassPath.replace(File.separator, ".");
 
+                    Class<?> beanClass;
                     try {
-                        Class<?> clazz = CLASS_LOADER.loadClass(fullyClassName);
-                        if (!clazz.isAnnotationPresent(Component.class)) {
-                            continue;
+                        beanClass = CLASS_LOADER.loadClass(fullyClassName);
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    if (!beanClass.isAnnotationPresent(Component.class)) {
+                        continue;
+                    }
+
+                    if (BeanPostProcessor.class.isAssignableFrom(beanClass)) {
+                        try {
+                            BeanPostProcessor beanPostProcessor = (BeanPostProcessor) beanClass.getDeclaredConstructor().newInstance();
+                            beanPostProcessors.add(beanPostProcessor);
+                        } catch (InstantiationException e) {
+                            throw new RuntimeException(e);
+                        } catch (IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        } catch (InvocationTargetException e) {
+                            throw new RuntimeException(e);
+                        } catch (NoSuchMethodException e) {
+                            throw new RuntimeException(e);
                         }
-                        Component component = clazz.getDeclaredAnnotation(Component.class);
+                    } else {
+                        Component component = beanClass.getDeclaredAnnotation(Component.class);
                         String beanName = component.value();
 
                         BeanDefinition beanDefinition = new BeanDefinition();
-                        beanDefinition.setClazz(clazz);
+                        beanDefinition.setClazz(beanClass);
 
-                        if (clazz.isAnnotationPresent(Scope.class)) {
-                            Scope scope = clazz.getDeclaredAnnotation(Scope.class);
+                        if (beanClass.isAnnotationPresent(Scope.class)) {
+                            Scope scope = beanClass.getDeclaredAnnotation(Scope.class);
                             beanDefinition.setScope(scope.value());
                         } else {
                             beanDefinition.setScope("singleton");
                         }
 
                         beanDefinitionMap.put(beanName, beanDefinition);
-
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
                     }
+
                 }
             }
         }

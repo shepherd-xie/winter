@@ -20,6 +20,8 @@ public class UserService implements BeanNameAware, InitializingBean {
 
     private String beanName;
 
+    private String name;
+
     public void test() {
         System.out.println(userRepository);
         System.out.println(beanName);
@@ -33,5 +35,9 @@ public class UserService implements BeanNameAware, InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         System.out.println("afterPropertiesSet");
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }
