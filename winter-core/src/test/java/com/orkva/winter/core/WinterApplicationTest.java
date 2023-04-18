@@ -1,5 +1,7 @@
 package com.orkva.winter.core;
 
+import com.orkva.winter.core.service.UserService;
+
 /**
  * WinterApplication
  *
@@ -11,12 +13,8 @@ public class WinterApplicationTest {
 
         AnnotationApplicationContext annotationApplicationContext = new AnnotationApplicationContext(AppConfig.class);
 
-        Object userService1 = annotationApplicationContext.getBean("userService");
-        Object userService2 = annotationApplicationContext.getBean("userService");
-        Object userService3 = annotationApplicationContext.getBean("userService");
+        UserService userService = (UserService) annotationApplicationContext.getBean("userService");
 
-        System.out.println(userService1);
-        System.out.println(userService2);
-        System.out.println(userService3);
+        userService.test();
     }
 }

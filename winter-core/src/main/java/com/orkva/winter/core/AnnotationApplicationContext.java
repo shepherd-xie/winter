@@ -1,11 +1,14 @@
 package com.orkva.winter.core;
 
+import com.orkva.winter.core.annotation.Autowired;
 import com.orkva.winter.core.annotation.Component;
 import com.orkva.winter.core.annotation.ComponentScan;
 import com.orkva.winter.core.annotation.Scope;
+import com.orkva.winter.core.aware.BeanNameAware;
 import com.orkva.winter.core.exception.NoBeanDefinitionException;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayDeque;
@@ -40,17 +43,32 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
         componentClassScan(componentScan);
 
         for (Map.Entry<String, BeanDefinition> beanDefinitionEntry : beanDefinitionMap.entrySet()) {
+            String beanName = beanDefinitionEntry.getKey();
             BeanDefinition beanDefinition = beanDefinitionEntry.getValue();
             if ("singleton".equals(beanDefinition.getScope())) {
-                singletonObjects.put(beanDefinitionEntry.getKey(), createBean(beanDefinition));
+                singletonObjects.put(beanName, createBean(beanName, beanDefinition));
             }
         }
     }
 
-    public Object createBean(BeanDefinition beanDefinition) {
+    private Object createBean(String beanName, BeanDefinition beanDefinition) {
         Class<?> clazz = beanDefinition.getClazz();
         try {
-            return clazz.getDeclaredConstructor().newInstance();
+            Object instance = clazz.getDeclaredConstructor().newInstance();
+
+            for (Field declaredField : clazz.getDeclaredFields()) {
+                if (declaredField.isAnnotationPresent(Autowired.class)) {
+                    Object bean = getBean(declaredField.getName());
+                    declaredField.setAccessible(true);
+                    declaredField.set(instance, bean);
+                }
+            }
+
+            if (instance instanceof BeanNameAware) {
+                ((BeanNameAware) instance).setBeanName(beanName);
+            }
+
+            return instance;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
         } catch (IllegalAccessException e) {
@@ -127,6 +145,6 @@ public class AnnotationApplicationContext extends AbstractApplicationContext {
             return singletonObjects.get(beanName);
         }
 
-        return createBean(beanDefinition);
+        return createBean(beanName, beanDefinition);
     }
 }
